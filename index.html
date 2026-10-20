@@ -100,7 +100,7 @@
   #cinema.show { display: flex; animation: fadein .25s ease-out; }
   #cinema canvas { width: min(720px, 94vw); aspect-ratio: 16 / 9; border-radius: 10px; box-shadow: 0 10px 60px rgba(0,0,0,.8); border: 2px solid #333; }
   @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
-  /* ---------- Victory Royale ---------- */
+  /* ---------- Victory screen ---------- */
   #victory { position: fixed; inset: 0; z-index: 30; display: none; overflow: hidden; align-items: center; justify-content: center; flex-direction: column;
              background: radial-gradient(circle at 50% 40%, #3d7bff 0%, #1d3fb8 35%, #160f5c 75%, #090530 100%); }
   #victory.show { display: flex; animation: fadein .3s ease-out; }
@@ -113,15 +113,10 @@
   @keyframes pulse { 0%,100% { transform: scale(1); opacity: .8; } 50% { transform: scale(1.12); opacity: 1; } }
   .vr-title { position: relative; text-align: center; font-weight: 900; transform: skewX(-8deg) rotate(-3deg); font-family: Impact, "Arial Black", "Segoe UI Black", sans-serif;
     text-transform: uppercase; line-height: .9; animation: slam .7s cubic-bezier(.2, 1.6, .4, 1) both .15s; }
-  .vr-num { font-size: clamp(60px, 13vw, 150px); }
   .vr-victory { font-size: clamp(70px, 16vw, 200px); letter-spacing: .02em; }
   .vr-gold { background: linear-gradient(#fffbe0 0%, #ffe46b 35%, #ffb400 70%, #ff8a00 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
     filter: drop-shadow(0 0 2px #1b1260) drop-shadow(0 6px 0 #1b1260) drop-shadow(0 10px 18px rgba(0,0,0,.5)); }
-  .vr-royale { display: inline-block; margin-top: 4px; padding: 6px 48px 2px; font-size: clamp(34px, 7vw, 86px); letter-spacing: .12em; color: #fff;
-    background: linear-gradient(90deg, rgba(120,60,255,0), #8a3cff 15%, #c13cff 50%, #8a3cff 85%, rgba(120,60,255,0));
-    text-shadow: 0 4px 0 #2a0d6b, 0 0 20px rgba(255,255,255,.4); animation: banner .5s ease-out both .75s; }
   @keyframes slam { 0% { transform: skewX(-8deg) rotate(-3deg) scale(4); opacity: 0; } 60% { opacity: 1; } 100% { transform: skewX(-8deg) rotate(-3deg) scale(1); opacity: 1; } }
-  @keyframes banner { from { transform: scaleX(0); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
   .vr-stats { position: relative; display: flex; gap: 14px; margin-top: 34px; flex-wrap: wrap; justify-content: center; animation: rise .5s ease-out both 1.2s; }
   .vr-stat { background: rgba(10,8,60,.6); border: 2px solid rgba(255,255,255,.25); border-radius: 6px; padding: 10px 18px; min-width: 120px; text-align: center;
     transform: skewX(-8deg); }
@@ -209,9 +204,7 @@
 <div id="victory">
   <div class="rays"></div><div class="glow"></div>
   <div class="vr-title">
-    <div class="vr-num vr-gold">#1</div>
     <div class="vr-victory vr-gold">Victory</div>
-    <div class="vr-royale">Royale</div>
   </div>
   <div class="vr-stats" id="vrStats"></div>
   <button class="vr-btn" id="vrAgainBtn">Play Again</button>
@@ -813,7 +806,7 @@
     setStatus(won ? "Victory! The enemy fleet is destroyed." : "Defeat. Your fleet has been sunk.");
     log(won ? "VICTORY!" : "DEFEAT.", "big");
     setTimeout(() => {
-      if (won) return showVictoryRoyale();
+      if (won) return showVictory();
       (won ? sfx.win : sfx.lose)();
       $("resultTitle").textContent = won ? "VICTORY" : "DEFEAT";
       $("resultTitle").style.color = won ? "var(--accent)" : "var(--hit)";
@@ -825,16 +818,16 @@
     }, 900);
   }
 
-  function showVictoryRoyale() {
+  function showVictory() {
     sfx.win();
     const acc = Math.round(100 * enemy.hitCount / enemy.shotCount);
     const left = player.ships.filter(sh => sh.hits < sh.size).length;
-    const stats = [["Placed", "#1"], ["Eliminations", enemy.ships.length], ["Shots", enemy.shotCount], ["Accuracy", acc + "%"], ["Ships Left", left]];
+    const stats = [["Eliminations", enemy.ships.length], ["Shots", enemy.shotCount], ["Accuracy", acc + "%"], ["Ships Left", left]];
     $("vrStats").innerHTML = stats.map(([k, v]) => `<div class="vr-stat"><div class="v">${v}</div><div class="k">${k}</div></div>`).join("");
     const v = $("victory");
     v.querySelectorAll(".confetti").forEach(e => e.remove());
     // restart CSS entrance animations
-    v.querySelectorAll(".vr-title, .vr-royale, .vr-stats, .vr-btn").forEach(e => { e.style.animation = "none"; void e.offsetWidth; e.style.animation = ""; });
+    v.querySelectorAll(".vr-title, .vr-stats, .vr-btn").forEach(e => { e.style.animation = "none"; void e.offsetWidth; e.style.animation = ""; });
     const colors = ["#ffe46b", "#ff4fd8", "#4fd2ff", "#7cff6b", "#ff8a00", "#ffffff", "#b06bff"];
     for (let i = 0; i < 140; i++) {
       const c = document.createElement("div");
