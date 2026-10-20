@@ -100,6 +100,41 @@
   #cinema.show { display: flex; animation: fadein .25s ease-out; }
   #cinema canvas { width: min(720px, 94vw); aspect-ratio: 16 / 9; border-radius: 10px; box-shadow: 0 10px 60px rgba(0,0,0,.8); border: 2px solid #333; }
   @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+  /* ---------- Victory Royale ---------- */
+  #victory { position: fixed; inset: 0; z-index: 30; display: none; overflow: hidden; align-items: center; justify-content: center; flex-direction: column;
+             background: radial-gradient(circle at 50% 40%, #3d7bff 0%, #1d3fb8 35%, #160f5c 75%, #090530 100%); }
+  #victory.show { display: flex; animation: fadein .3s ease-out; }
+  #victory .rays { position: absolute; left: 50%; top: 40%; width: 260vmax; height: 260vmax; margin: -130vmax 0 0 -130vmax;
+    background: repeating-conic-gradient(rgba(255,255,255,.13) 0deg 7deg, rgba(255,255,255,0) 7deg 18deg);
+    animation: spin 40s linear infinite; pointer-events: none; }
+  #victory .glow { position: absolute; left: 50%; top: 40%; width: 70vmin; height: 70vmin; margin: -35vmin 0 0 -35vmin; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,240,170,.55), rgba(255,200,60,0) 65%); animation: pulse 2s ease-in-out infinite; pointer-events: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pulse { 0%,100% { transform: scale(1); opacity: .8; } 50% { transform: scale(1.12); opacity: 1; } }
+  .vr-title { position: relative; text-align: center; font-weight: 900; transform: skewX(-8deg) rotate(-3deg); font-family: Impact, "Arial Black", "Segoe UI Black", sans-serif;
+    text-transform: uppercase; line-height: .9; animation: slam .7s cubic-bezier(.2, 1.6, .4, 1) both .15s; }
+  .vr-num { font-size: clamp(60px, 13vw, 150px); }
+  .vr-victory { font-size: clamp(70px, 16vw, 200px); letter-spacing: .02em; }
+  .vr-gold { background: linear-gradient(#fffbe0 0%, #ffe46b 35%, #ffb400 70%, #ff8a00 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 2px #1b1260) drop-shadow(0 6px 0 #1b1260) drop-shadow(0 10px 18px rgba(0,0,0,.5)); }
+  .vr-royale { display: inline-block; margin-top: 4px; padding: 6px 48px 2px; font-size: clamp(34px, 7vw, 86px); letter-spacing: .12em; color: #fff;
+    background: linear-gradient(90deg, rgba(120,60,255,0), #8a3cff 15%, #c13cff 50%, #8a3cff 85%, rgba(120,60,255,0));
+    text-shadow: 0 4px 0 #2a0d6b, 0 0 20px rgba(255,255,255,.4); animation: banner .5s ease-out both .75s; }
+  @keyframes slam { 0% { transform: skewX(-8deg) rotate(-3deg) scale(4); opacity: 0; } 60% { opacity: 1; } 100% { transform: skewX(-8deg) rotate(-3deg) scale(1); opacity: 1; } }
+  @keyframes banner { from { transform: scaleX(0); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
+  .vr-stats { position: relative; display: flex; gap: 14px; margin-top: 34px; flex-wrap: wrap; justify-content: center; animation: rise .5s ease-out both 1.2s; }
+  .vr-stat { background: rgba(10,8,60,.6); border: 2px solid rgba(255,255,255,.25); border-radius: 6px; padding: 10px 18px; min-width: 120px; text-align: center;
+    transform: skewX(-8deg); }
+  .vr-stat .v { font-family: Impact, "Arial Black", sans-serif; font-size: 2rem; color: #ffe46b; text-shadow: 0 3px 0 #1b1260; }
+  .vr-stat .k { font-size: .8rem; letter-spacing: .15em; color: #cfd8ff; text-transform: uppercase; font-weight: 700; }
+  @keyframes rise { from { transform: translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .vr-btn { position: relative; margin-top: 30px; font-family: Impact, "Arial Black", sans-serif; font-size: 1.6rem; letter-spacing: .08em; text-transform: uppercase;
+    padding: 10px 44px; color: #1a1200; border: 3px solid #fff6c0; border-radius: 6px; cursor: pointer; transform: skewX(-8deg);
+    background: linear-gradient(#fff36b, #ffc400); box-shadow: 0 6px 0 #a06a00, 0 10px 24px rgba(0,0,0,.4); animation: rise .5s ease-out both 1.5s; }
+  .vr-btn:hover { filter: brightness(1.1); }
+  .vr-btn:active { box-shadow: 0 2px 0 #a06a00; translate: 0 4px; }
+  .confetti { position: absolute; top: -20px; width: 10px; height: 16px; pointer-events: none; animation: fall linear forwards; }
+  @keyframes fall { to { transform: translate(var(--drift), 110vh) rotate(var(--spin)); } }
   .fleet { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; min-width: 200px; }
   .fleet-item { display: flex; align-items: center; gap: 8px; font-size: .85rem; padding: 3px 8px; border-radius: 6px; border: 1px solid transparent; }
   .fleet-item .pips { display: flex; gap: 2px; }
@@ -171,6 +206,17 @@
 
 <div id="cinema" title="Click to skip"><canvas id="cinemaCanvas" width="960" height="540"></canvas></div>
 
+<div id="victory">
+  <div class="rays"></div><div class="glow"></div>
+  <div class="vr-title">
+    <div class="vr-num vr-gold">#1</div>
+    <div class="vr-victory vr-gold">Victory</div>
+    <div class="vr-royale">Royale</div>
+  </div>
+  <div class="vr-stats" id="vrStats"></div>
+  <button class="vr-btn" id="vrAgainBtn">Play Again</button>
+</div>
+
 <div id="overlay"><div class="modal">
   <h2 id="resultTitle">VICTORY</h2>
   <p id="resultText"></p>
@@ -220,7 +266,11 @@
     hit: () => { tone({ freq: 1800, end: 80, dur: .5, noise: true, vol: .5 }); tone({ freq: 120, end: 40, dur: .4, type: "sine", vol: .4 }); },
     sunk: () => { tone({ freq: 900, end: 40, dur: 1.1, noise: true, vol: .6 }); tone({ freq: 90, end: 30, dur: 1, type: "sawtooth", vol: .15 }); },
     place: () => tone({ freq: 500, end: 700, dur: .08, type: "square", vol: .06 }),
-    win: () => [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone({ freq: f, dur: .3, type: "triangle", vol: .2 }), i * 150)),
+    win: () => {
+      tone({ freq: 160, end: 40, dur: .6, noise: true, vol: .5 });
+      [[392, 0], [523, 120], [659, 240], [784, 360], [1047, 520], [784, 760], [1047, 880]].forEach(([f, d], i, a) =>
+        setTimeout(() => { tone({ freq: f, dur: i === a.length - 1 ? 1.2 : .25, type: "sawtooth", vol: .08 }); tone({ freq: f / 2, dur: i === a.length - 1 ? 1.2 : .25, type: "triangle", vol: .15 }); }, d + 150));
+    },
     lose: () => [392, 330, 262, 196].forEach((f, i) => setTimeout(() => tone({ freq: f, dur: .4, type: "triangle", vol: .2 }), i * 200)),
   };
 
@@ -763,6 +813,7 @@
     setStatus(won ? "Victory! The enemy fleet is destroyed." : "Defeat. Your fleet has been sunk.");
     log(won ? "VICTORY!" : "DEFEAT.", "big");
     setTimeout(() => {
+      if (won) return showVictoryRoyale();
       (won ? sfx.win : sfx.lose)();
       $("resultTitle").textContent = won ? "VICTORY" : "DEFEAT";
       $("resultTitle").style.color = won ? "var(--accent)" : "var(--hit)";
@@ -774,6 +825,33 @@
     }, 900);
   }
 
+  function showVictoryRoyale() {
+    sfx.win();
+    const acc = Math.round(100 * enemy.hitCount / enemy.shotCount);
+    const left = player.ships.filter(sh => sh.hits < sh.size).length;
+    const stats = [["Placed", "#1"], ["Eliminations", enemy.ships.length], ["Shots", enemy.shotCount], ["Accuracy", acc + "%"], ["Ships Left", left]];
+    $("vrStats").innerHTML = stats.map(([k, v]) => `<div class="vr-stat"><div class="v">${v}</div><div class="k">${k}</div></div>`).join("");
+    const v = $("victory");
+    v.querySelectorAll(".confetti").forEach(e => e.remove());
+    // restart CSS entrance animations
+    v.querySelectorAll(".vr-title, .vr-royale, .vr-stats, .vr-btn").forEach(e => { e.style.animation = "none"; void e.offsetWidth; e.style.animation = ""; });
+    const colors = ["#ffe46b", "#ff4fd8", "#4fd2ff", "#7cff6b", "#ff8a00", "#ffffff", "#b06bff"];
+    for (let i = 0; i < 140; i++) {
+      const c = document.createElement("div");
+      c.className = "confetti";
+      c.style.left = Math.random() * 100 + "vw";
+      c.style.background = colors[i % colors.length];
+      c.style.width = 6 + Math.random() * 8 + "px";
+      c.style.height = 10 + Math.random() * 10 + "px";
+      c.style.setProperty("--drift", (Math.random() - .5) * 300 + "px");
+      c.style.setProperty("--spin", (Math.random() * 1440 - 720) + "deg");
+      c.style.animationDuration = 2.5 + Math.random() * 3 + "s";
+      c.style.animationDelay = .4 + Math.random() * 1.5 + "s";
+      v.appendChild(c);
+    }
+    v.classList.add("show");
+  }
+
   // ---------- Wire up ----------
   buildBoard($("playerBoard"), onPlayerClick, onPlayerHover);
   buildBoard($("enemyBoard"), onEnemyClick);
@@ -782,6 +860,7 @@
   $("clearBtn").onclick = () => { player = makeSide(); selected = 0; setStatus("Place your fleet"); render(); };
   $("startBtn").onclick = startBattle;
   $("againBtn").onclick = newGame;
+  $("vrAgainBtn").onclick = () => { $("victory").classList.remove("show"); newGame(); };
   $("cinemaBtn").onclick = () => { cinemaOn = !cinemaOn; $("cinemaBtn").textContent = "Sink Videos: " + (cinemaOn ? "On" : "Off"); };
   $("soundBtn").onclick = () => { soundOn = !soundOn; $("soundBtn").textContent = "Sound: " + (soundOn ? "On" : "Off"); };
   document.addEventListener("keydown", e => { if (e.key === "r" || e.key === "R") rotate(); });
