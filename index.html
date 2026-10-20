@@ -69,6 +69,33 @@
   .cell.last { box-shadow: inset 0 0 0 2px var(--accent); }
   @keyframes pop { from { transform: scale(2.2); opacity: 0; } to { transform: scale(1); } }
   @keyframes boom { 0% { transform: scale(2.6); color: #fff27a; } 100% { transform: scale(1); } }
+  .explosion { position: absolute; left: 50%; top: 50%; width: 0; height: 0; z-index: 5; pointer-events: none; }
+  .explosion .core {
+    position: absolute; left: calc(var(--cell) * -.6); top: calc(var(--cell) * -.6);
+    width: calc(var(--cell) * 1.2); height: calc(var(--cell) * 1.2); border-radius: 50%;
+    background: radial-gradient(circle, #fff 0%, #fff27a 20%, #ffb020 42%, #ff4b1f 65%, rgba(120,20,0,0) 72%);
+    animation: fireball .7s ease-out forwards;
+  }
+  .explosion .ring {
+    position: absolute; left: calc(var(--cell) * -.5); top: calc(var(--cell) * -.5);
+    width: calc(var(--cell) * 1); height: calc(var(--cell) * 1); border-radius: 50%;
+    border: 3px solid rgba(255,220,120,.9); animation: shock .55s ease-out forwards;
+  }
+  .explosion .smoke {
+    position: absolute; left: calc(var(--cell) * -.45); top: calc(var(--cell) * -.45);
+    width: calc(var(--cell) * .9); height: calc(var(--cell) * .9); border-radius: 50%;
+    background: radial-gradient(circle, rgba(70,70,70,.8), rgba(40,40,40,0) 70%);
+    animation: smoke 1s ease-out .15s forwards; opacity: 0;
+  }
+  .explosion .spark {
+    position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%;
+    background: #ffd447; box-shadow: 0 0 6px #ff8a00; animation: spark .6s ease-out forwards;
+  }
+  .explosion.big .core, .explosion.big .ring, .explosion.big .smoke { scale: 1.8; }
+  @keyframes fireball { 0% { transform: scale(.2); opacity: 1; } 40% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1.4); opacity: 0; } }
+  @keyframes shock { 0% { transform: scale(.3); opacity: 1; } 100% { transform: scale(2); opacity: 0; } }
+  @keyframes smoke { 0% { transform: scale(.5) translateY(0); opacity: .8; } 100% { transform: scale(1.6) translateY(calc(var(--cell) * -.6)); opacity: 0; } }
+  @keyframes spark { 0% { transform: translate(0,0) scale(1); opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) scale(.3); opacity: 0; } }
   .fleet { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; min-width: 200px; }
   .fleet-item { display: flex; align-items: center; gap: 8px; font-size: .85rem; padding: 3px 8px; border-radius: 6px; border: 1px solid transparent; }
   .fleet-item .pips { display: flex; gap: 2px; }
@@ -499,8 +526,8 @@
     if (phase !== "battle" || !playerTurn || enemy.shots[r][c]) return;
     const res = fire(enemy, r, c);
     if (res.result === "miss") { sfx.miss(); log(`You fire at ${coord(r, c)} — miss.`, "you"); }
-    else if (res.result === "hit") { sfx.hit(); log(`You fire at ${coord(r, c)} — HIT!`, "you"); }
-    else { sfx.sunk(); shake("enemyBoard"); log(`You fire at ${coord(r, c)} — you sank their ${enemy.ships[res.shipIdx].name}!`, "big"); }
+    else if (res.result === "hit") { sfx.hit(); explode("enemyBoard", r, c); log(`You fire at ${coord(r, c)} — HIT!`, "you"); }
+    else { sfx.sunk(); explode("enemyBoard", r, c, true); shake("enemyBoard"); log(`You fire at ${coord(r, c)} — you sank their ${enemy.ships[res.shipIdx].name}!`, "big"); }
     if (allSunk(enemy)) return endGame(true);
     playerTurn = false;
     setStatus(res.result === "miss" ? "Miss. Enemy is aiming..." : (res.result === "sunk" ? `Sunk their ${enemy.ships[res.shipIdx].name}! Enemy is aiming...` : "Hit! Enemy is aiming..."));
@@ -516,14 +543,32 @@
     aiRecord(ai, r, c, res, player);
     lastCpuShot = [r, c];
     if (res.result === "miss") { sfx.miss(); log(`Enemy fires at ${coord(r, c)} — miss.`, "cpu"); }
-    else if (res.result === "hit") { sfx.hit(); shake("playerBoard"); log(`Enemy fires at ${coord(r, c)} — HIT!`, "cpu"); }
-    else { sfx.sunk(); shake("playerBoard"); log(`Enemy fires at ${coord(r, c)} — they sank your ${player.ships[res.shipIdx].name}!`, "big"); }
+    else if (res.result === "hit") { sfx.hit(); explode("playerBoard", r, c); shake("playerBoard"); log(`Enemy fires at ${coord(r, c)} — HIT!`, "cpu"); }
+    else { sfx.sunk(); explode("playerBoard", r, c, true); shake("playerBoard"); log(`Enemy fires at ${coord(r, c)} — they sank your ${player.ships[res.shipIdx].name}!`, "big"); }
     if (allSunk(player)) return endGame(false);
     playerTurn = true;
     const msg = res.result === "miss" ? `Enemy missed at ${coord(r, c)}.` :
       res.result === "hit" ? `Enemy hit you at ${coord(r, c)}!` : `Enemy sank your ${player.ships[res.shipIdx].name}!`;
     setStatus(msg + " Your turn.");
     render();
+  }
+
+  function explode(boardId, r, c, big) {
+    const cell = cellEl($(boardId), r, c);
+    const ex = document.createElement("div");
+    ex.className = "explosion" + (big ? " big" : "");
+    ex.innerHTML = '<div class="smoke"></div><div class="core"></div><div class="ring"></div>';
+    const sparks = big ? 14 : 8, dist = big ? 1.6 : 1;
+    for (let i = 0; i < sparks; i++) {
+      const a = (i / sparks) * Math.PI * 2 + Math.random() * .4, d = (18 + Math.random() * 14) * dist;
+      const sp = document.createElement("div");
+      sp.className = "spark";
+      sp.style.setProperty("--dx", Math.cos(a) * d + "px");
+      sp.style.setProperty("--dy", Math.sin(a) * d + "px");
+      ex.appendChild(sp);
+    }
+    cell.appendChild(ex);
+    setTimeout(() => ex.remove(), 1200);
   }
 
   function shake(id) {
