@@ -96,6 +96,10 @@
   @keyframes shock { 0% { transform: scale(.3); opacity: 1; } 100% { transform: scale(2); opacity: 0; } }
   @keyframes smoke { 0% { transform: scale(.5) translateY(0); opacity: .8; } 100% { transform: scale(1.6) translateY(calc(var(--cell) * -.6)); opacity: 0; } }
   @keyframes spark { 0% { transform: translate(0,0) scale(1); opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) scale(.3); opacity: 0; } }
+  #cinema { position: fixed; inset: 0; background: rgba(0,0,0,.8); display: none; align-items: center; justify-content: center; z-index: 20; cursor: pointer; }
+  #cinema.show { display: flex; animation: fadein .25s ease-out; }
+  #cinema canvas { width: min(720px, 94vw); aspect-ratio: 16 / 9; border-radius: 10px; box-shadow: 0 10px 60px rgba(0,0,0,.8); border: 2px solid #333; }
+  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
   .fleet { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; min-width: 200px; }
   .fleet-item { display: flex; align-items: center; gap: 8px; font-size: .85rem; padding: 3px 8px; border-radius: 6px; border: 1px solid transparent; }
   .fleet-item .pips { display: flex; gap: 2px; }
@@ -139,6 +143,7 @@
   </select>
   <button class="btn primary" id="startBtn" disabled>Start Battle</button>
   <button class="btn" id="soundBtn">Sound: On</button>
+  <button class="btn" id="cinemaBtn">Sink Videos: On</button>
 </div>
 <div class="help" id="help">Select a ship, then click your board to place it. Press R (or the Rotate button) to rotate.</div>
 
@@ -163,6 +168,8 @@
   <span>Record (W–L): <b id="record">0–0</b></span>
 </div>
 <div id="log"></div>
+
+<div id="cinema" title="Click to skip"><canvas id="cinemaCanvas" width="960" height="540"></canvas></div>
 
 <div id="overlay"><div class="modal">
   <h2 id="resultTitle">VICTORY</h2>
@@ -528,11 +535,15 @@
     if (res.result === "miss") { sfx.miss(); log(`You fire at ${coord(r, c)} — miss.`, "you"); }
     else if (res.result === "hit") { sfx.hit(); explode("enemyBoard", r, c); log(`You fire at ${coord(r, c)} — HIT!`, "you"); }
     else { sfx.sunk(); explode("enemyBoard", r, c, true); shake("enemyBoard"); log(`You fire at ${coord(r, c)} — you sank their ${enemy.ships[res.shipIdx].name}!`, "big"); }
-    if (allSunk(enemy)) return endGame(true);
     playerTurn = false;
-    setStatus(res.result === "miss" ? "Miss. Enemy is aiming..." : (res.result === "sunk" ? `Sunk their ${enemy.ships[res.shipIdx].name}! Enemy is aiming...` : "Hit! Enemy is aiming..."));
+    const won = allSunk(enemy);
+    setStatus(res.result === "miss" ? "Miss. Enemy is aiming..." :
+      res.result === "hit" ? "Hit! Enemy is aiming..." :
+      `Sunk their ${enemy.ships[res.shipIdx].name}!` + (won ? "" : " Enemy is aiming..."));
     render();
-    setTimeout(cpuTurn, 850);
+    const proceed = () => won ? endGame(true) : setTimeout(cpuTurn, 850);
+    if (res.result === "sunk") playSinking(enemy.ships[res.shipIdx], true, proceed);
+    else proceed();
   }
 
   function cpuTurn() {
@@ -545,12 +556,181 @@
     if (res.result === "miss") { sfx.miss(); log(`Enemy fires at ${coord(r, c)} — miss.`, "cpu"); }
     else if (res.result === "hit") { sfx.hit(); explode("playerBoard", r, c); shake("playerBoard"); log(`Enemy fires at ${coord(r, c)} — HIT!`, "cpu"); }
     else { sfx.sunk(); explode("playerBoard", r, c, true); shake("playerBoard"); log(`Enemy fires at ${coord(r, c)} — they sank your ${player.ships[res.shipIdx].name}!`, "big"); }
-    if (allSunk(player)) return endGame(false);
-    playerTurn = true;
     const msg = res.result === "miss" ? `Enemy missed at ${coord(r, c)}.` :
       res.result === "hit" ? `Enemy hit you at ${coord(r, c)}!` : `Enemy sank your ${player.ships[res.shipIdx].name}!`;
-    setStatus(msg + " Your turn.");
+    const proceed = () => {
+      if (allSunk(player)) return endGame(false);
+      playerTurn = true;
+      setStatus(msg + " Your turn.");
+      render();
+    };
     render();
+    if (res.result === "sunk") { setStatus(msg); playSinking(player.ships[res.shipIdx], false, proceed); }
+    else proceed();
+  }
+
+  // ---------- Ship-sinking cinematic ----------
+  let cinemaOn = true;
+  function playSinking(ship, isEnemy, done) {
+    if (!cinemaOn) return done();
+    const ov = $("cinema"), cv = $("cinemaCanvas"), ctx = cv.getContext("2d");
+    const W = cv.width, H = cv.height, WATER = H * 0.62, DUR = 3.6;
+    const L = 160 + ship.size * 70;
+    const caption = (isEnemy ? "ENEMY " : "YOUR ") + ship.name.toUpperCase() + " SUNK";
+    const hullCol = isEnemy ? "#3b4249" : "#6f7d8a", deckCol = isEnemy ? "#4d565e" : "#8b99a6";
+    const smoke = [], fire = [], bubbles = [], drops = [];
+    let start = null, finished = false, last = 0, groaned = false;
+    const clamp = v => Math.max(0, Math.min(1, v));
+    const ease = v => v * v * (3 - 2 * v);
+    const wave = (x, t, a = 1) => Math.sin(x * 0.012 + t * 1.6) * 5 * a + Math.sin(x * 0.031 - t * 2.3) * 2.5 * a;
+
+    for (let i = 0; i < 40; i++) {
+      const a = -Math.PI / 2 + (Math.random() - .5) * 1.6, sp = 200 + Math.random() * 300;
+      drops.push({ x: W / 2 + (Math.random() - .5) * 60, y: WATER - 30, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1 });
+    }
+
+    function shipState(t) {
+      const p = ease(clamp((t - 0.6) / 2.6));
+      return {
+        p,
+        x: W / 2 - p * 30,
+        y: WATER + 6 + Math.sin(t * 2) * 3 + Math.pow(p, 1.6) * (H * 0.55),
+        a: -p * 0.5 + Math.sin(t * 1.7) * 0.02,
+      };
+    }
+    function toWorld(s, lx, ly) {
+      const c = Math.cos(s.a), n = Math.sin(s.a);
+      return [s.x + lx * c - ly * n, s.y + lx * n + ly * c];
+    }
+    function drawShip(s) {
+      ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(s.a);
+      const h = L / 2;
+      // hull
+      ctx.fillStyle = hullCol;
+      ctx.beginPath(); ctx.moveTo(-h, -22); ctx.lineTo(h + 26, -28); ctx.lineTo(h - 14, 26); ctx.lineTo(-h + 14, 26); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#7a1d16";
+      ctx.beginPath(); ctx.moveTo(-h + 6, 8); ctx.lineTo(h + 1, 8); ctx.lineTo(h - 14, 26); ctx.lineTo(-h + 14, 26); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = deckCol; ctx.fillRect(-h, -26, L + 20, 5);
+      // superstructure
+      ctx.fillStyle = deckCol;
+      ctx.fillRect(-L * 0.16, -54, L * 0.3, 30);
+      ctx.fillRect(-L * 0.04, -76, L * 0.14, 24);
+      ctx.fillStyle = "#cfe3f5"; for (let i = 0; i < 4; i++) ctx.fillRect(-L * 0.03 + i * L * 0.03, -70, L * 0.018, 6);
+      ctx.fillStyle = hullCol; ctx.fillRect(-L * 0.1, -92, 20, 40);
+      ctx.fillStyle = "#222"; ctx.fillRect(-L * 0.1, -94, 20, 6);
+      ctx.strokeStyle = hullCol; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(L * 0.05, -76); ctx.lineTo(L * 0.05, -112); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(L * 0.05 - 12, -102); ctx.lineTo(L * 0.05 + 12, -102); ctx.stroke();
+      // turrets
+      const turrets = ship.size >= 4 ? [-0.36, 0.3, 0.42] : ship.size === 3 ? [-0.34, 0.34] : [0.34];
+      turrets.forEach(f => {
+        ctx.fillStyle = deckCol; ctx.beginPath(); ctx.ellipse(L * f, -30, 18, 10, 0, Math.PI, 0); ctx.fill();
+        ctx.strokeStyle = "#2a2f34"; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(L * f, -36); ctx.lineTo(L * f + (f > 0 ? 34 : -34), -42); ctx.stroke();
+      });
+      // scorch marks
+      ctx.fillStyle = "rgba(0,0,0,.45)";
+      [[-0.25, -8], [0.1, -2], [0.3, -12]].forEach(([f, y]) => { ctx.beginPath(); ctx.ellipse(L * f, y, 18, 9, 0.3, 0, Math.PI * 2); ctx.fill(); });
+      ctx.restore();
+    }
+
+    function frame(ts) {
+      if (finished) return;
+      if (start === null) { start = ts; last = ts; }
+      const t = (ts - start) / 1000, dt = Math.min(0.05, (ts - last) / 1000); last = ts;
+      const s = shipState(t);
+
+      // sky
+      const sky = ctx.createLinearGradient(0, 0, 0, WATER);
+      sky.addColorStop(0, "#1a1430"); sky.addColorStop(0.6, "#7a3b3b"); sky.addColorStop(1, "#e08a4a");
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, WATER);
+      ctx.fillStyle = "rgba(255,200,120,.85)"; ctx.beginPath(); ctx.arc(W * 0.8, WATER - 30, 46, 0, Math.PI * 2); ctx.fill();
+      // sea
+      const sea = ctx.createLinearGradient(0, WATER, 0, H);
+      sea.addColorStop(0, "#1d4e6e"); sea.addColorStop(1, "#04121f");
+      ctx.fillStyle = sea; ctx.fillRect(0, WATER - 10, W, H - WATER + 10);
+      // submerged part (faint)
+      ctx.save(); ctx.beginPath(); ctx.rect(0, WATER, W, H); ctx.clip(); ctx.globalAlpha = 0.22; drawShip(s); ctx.restore();
+      // visible part above the water
+      ctx.save(); ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(W, 0);
+      for (let x = W; x >= 0; x -= 16) ctx.lineTo(x, WATER + wave(x, t));
+      ctx.closePath(); ctx.clip(); drawShip(s); ctx.restore();
+      // wave surface lines
+      ctx.strokeStyle = "rgba(180,220,255,.35)"; ctx.lineWidth = 2;
+      for (let k = 0; k < 4; k++) {
+        ctx.beginPath();
+        for (let x = 0; x <= W; x += 12) { const y = WATER + k * 26 + wave(x + k * 90, t + k, 1 - k * 0.2); x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+        ctx.stroke();
+      }
+      // foam around the ship at the waterline
+      ctx.fillStyle = "rgba(230,245,255,.5)";
+      for (let i = 0; i < 10; i++) {
+        const fx = s.x + (i - 5) * (L / 9) * (1 - s.p * 0.7);
+        ctx.beginPath(); ctx.ellipse(fx, WATER + wave(fx, t) + 2, 22 * (1 - s.p * 0.5), 5, 0, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // emitters
+      const funnel = toWorld(s, -L * 0.1 + 10, -94);
+      if (funnel[1] < WATER) for (let i = 0; i < 2; i++) smoke.push({ x: funnel[0], y: funnel[1], r: 10, vx: -30 + Math.random() * 20, vy: -60 - Math.random() * 30, life: 1 });
+      for (let i = 0; i < 4; i++) {
+        const fp = toWorld(s, (Math.random() - .5) * L, -26);
+        if (fp[1] < WATER - 4) fire.push({ x: fp[0], y: fp[1], vx: (Math.random() - .5) * 30, vy: -80 - Math.random() * 80, life: 1 });
+      }
+      if (s.p > 0.45) for (let i = 0; i < 3; i++) bubbles.push({ x: s.x + (Math.random() - .5) * L * 0.5, y: WATER + 40 + Math.random() * (H - WATER - 40), r: 2 + Math.random() * 5, vy: -40 - Math.random() * 60 });
+      if (s.p > 0.3 && !groaned) { groaned = true; tone({ freq: 70, end: 35, dur: 1.6, type: "sawtooth", vol: .12 }); }
+
+      // particles
+      smoke.forEach(q => { q.x += q.vx * dt; q.y += q.vy * dt; q.r += 26 * dt; q.life -= dt * 0.5; });
+      fire.forEach(q => { q.x += q.vx * dt; q.y += q.vy * dt; q.life -= dt * 2.2; });
+      bubbles.forEach(q => { q.y += q.vy * dt; q.x += Math.sin(q.y * 0.05) * 0.5; });
+      drops.forEach(q => { q.vy += 700 * dt; q.x += q.vx * dt; q.y += q.vy * dt; q.life -= dt * 0.9; });
+      for (const arr of [smoke, fire, drops]) for (let i = arr.length - 1; i >= 0; i--) if (arr[i].life <= 0) arr.splice(i, 1);
+      for (let i = bubbles.length - 1; i >= 0; i--) if (bubbles[i].y < WATER) bubbles.splice(i, 1);
+
+      ctx.save();
+      ctx.strokeStyle = "rgba(200,235,255,.6)"; ctx.lineWidth = 1.5;
+      bubbles.forEach(q => { ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, Math.PI * 2); ctx.stroke(); });
+      smoke.forEach(q => { ctx.fillStyle = `rgba(40,38,40,${0.45 * q.life})`; ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, Math.PI * 2); ctx.fill(); });
+      ctx.globalCompositeOperation = "lighter";
+      fire.forEach(q => {
+        const g = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, 16);
+        g.addColorStop(0, `rgba(255,240,150,${q.life})`); g.addColorStop(0.5, `rgba(255,120,20,${0.7 * q.life})`); g.addColorStop(1, "rgba(255,40,0,0)");
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(q.x, q.y, 16, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = "rgba(220,240,255,.8)";
+      drops.forEach(q => { ctx.beginPath(); ctx.arc(q.x, q.y, 3, 0, Math.PI * 2); ctx.fill(); });
+      ctx.restore();
+
+      // initial flash
+      if (t < 0.25) { ctx.fillStyle = `rgba(255,230,180,${0.7 * (1 - t / 0.25)})`; ctx.fillRect(0, 0, W, H); }
+
+      // letterbox + caption
+      ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, 44); ctx.fillRect(0, H - 44, W, 44);
+      const ca = clamp((t - 0.8) / 0.4) * clamp((DUR - t) / 0.3);
+      ctx.textAlign = "center";
+      ctx.font = "800 54px 'Segoe UI', system-ui, sans-serif";
+      ctx.fillStyle = `rgba(0,0,0,${0.6 * ca})`; ctx.fillText(caption, W / 2 + 3, 133);
+      ctx.fillStyle = isEnemy ? `rgba(255,204,51,${ca})` : `rgba(255,90,70,${ca})`; ctx.fillText(caption, W / 2, 130);
+      ctx.font = "600 16px 'Segoe UI', system-ui, sans-serif"; ctx.fillStyle = "rgba(255,255,255,.5)";
+      ctx.fillText("click or press any key to skip", W / 2, H - 16);
+      // fade out
+      if (t > DUR - 0.4) { ctx.fillStyle = `rgba(0,0,0,${clamp((t - (DUR - 0.4)) / 0.4)})`; ctx.fillRect(0, 0, W, H); }
+
+      if (t >= DUR) return finish();
+      requestAnimationFrame(frame);
+    }
+    function finish() {
+      if (finished) return;
+      finished = true;
+      ov.classList.remove("show");
+      ov.onclick = null; document.removeEventListener("keydown", onKey, true);
+      done();
+    }
+    function onKey(e) { e.preventDefault(); e.stopPropagation(); finish(); }
+    ov.onclick = finish;
+    document.addEventListener("keydown", onKey, true);
+    ov.classList.add("show");
+    setTimeout(() => requestAnimationFrame(frame), 250);
   }
 
   function explode(boardId, r, c, big) {
@@ -602,6 +782,7 @@
   $("clearBtn").onclick = () => { player = makeSide(); selected = 0; setStatus("Place your fleet"); render(); };
   $("startBtn").onclick = startBattle;
   $("againBtn").onclick = newGame;
+  $("cinemaBtn").onclick = () => { cinemaOn = !cinemaOn; $("cinemaBtn").textContent = "Sink Videos: " + (cinemaOn ? "On" : "Off"); };
   $("soundBtn").onclick = () => { soundOn = !soundOn; $("soundBtn").textContent = "Sound: " + (soundOn ? "On" : "Off"); };
   document.addEventListener("keydown", e => { if (e.key === "r" || e.key === "R") rotate(); });
   $("playerBoard").addEventListener("contextmenu", e => { if (phase === "placing") { e.preventDefault(); rotate(); } });
