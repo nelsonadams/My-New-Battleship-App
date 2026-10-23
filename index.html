@@ -14,12 +14,13 @@
     --accent: #ffcc33; --text: #e8f1fa; --muted: #8fb0cc;
     --cell: min(4.2vw, 38px);
   }
+  @media (max-width: 760px) { :root { --cell: min(8.2vw, 38px); } }
   * { box-sizing: border-box; }
   body {
     margin: 0; min-height: 100vh; color: var(--text);
     font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
     background: radial-gradient(ellipse at top, var(--bg2), var(--bg1) 70%);
-    display: flex; flex-direction: column; align-items: center;
+    display: flex; flex-direction: column; align-items: center; overflow-x: hidden;
   }
   header { text-align: center; padding: 18px 10px 4px; }
   h1 { margin: 0; font-size: 2.4rem; letter-spacing: .35em; font-weight: 800;
@@ -414,7 +415,8 @@
 
   // ---------- Game state ----------
   let player, enemy, ai, phase, selected, horizontal, playerTurn, lastCpuShot, hoverCell;
-  const record = JSON.parse(localStorage.getItem("bs-record") || '{"w":0,"l":0}');
+  let record = { w: 0, l: 0 };
+  try { record = JSON.parse(localStorage.getItem("bs-record")) || record; } catch (e) {}
 
   function newGame() {
     player = makeSide(); enemy = makeSide(); ai = makeAI();
@@ -769,9 +771,13 @@
       ov.onclick = null; document.removeEventListener("keydown", onKey, true);
       done();
     }
-    function onKey(e) { e.preventDefault(); e.stopPropagation(); finish(); }
+    function onKey(e) {
+      if (e.ctrlKey || e.metaKey || e.altKey || /^F\d+$/.test(e.key)) return;
+      e.preventDefault(); e.stopPropagation(); finish();
+    }
     ov.onclick = finish;
     document.addEventListener("keydown", onKey, true);
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
     ov.classList.add("show");
     setTimeout(() => requestAnimationFrame(frame), 250);
   }
@@ -801,7 +807,7 @@
   function endGame(won) {
     phase = "over";
     if (won) record.w++; else record.l++;
-    localStorage.setItem("bs-record", JSON.stringify(record));
+    try { localStorage.setItem("bs-record", JSON.stringify(record)); } catch (e) {}
     render();
     setStatus(won ? "Victory! The enemy fleet is destroyed." : "Defeat. Your fleet has been sunk.");
     log(won ? "VICTORY!" : "DEFEAT.", "big");
